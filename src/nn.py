@@ -29,7 +29,7 @@ class NN:
         self.weights = [np.random.randn(l2, l1) for l1, l2 in
                 zip(self.layer_sizes[:-1], self.layer_sizes[1:])]
 
-    def feed_forward(self):
+    def feed_forward(self, a):
         """
         Computes the output of the network given an input a
         a is a numpy array of size n where n is dimension of input space
@@ -56,8 +56,8 @@ class NN:
         activation = x
         activations = [x] # store the sigmoid(z) variables
         zs = [] # store the w.x+b variables
-        for b, w in zip(self.biases, self.weights):
-            z = np.dot(w, activations) + b
+        for b, w in list(zip(self.biases, self.weights)):
+            z = np.dot(w, activation) + b
             zs.append(z)
             activation = sigmoid(z)
             activations.append(activation)
@@ -65,7 +65,7 @@ class NN:
         # go backward and store results in nabla_{b,w}
         delta = self.cost_prime(activations[-1], y) * sigmoid_prime(zs[-1])
         # derivative w.r.t last layer params
-        nabla_b[-1] = delta
+        nabla_b[-1] = delta
         nabla_w[-1] = np.dot(delta, activations[-2].transpose())
         # loop through the rest of the network
         for l in range(2, self.num_layers):
@@ -77,7 +77,15 @@ class NN:
 
         return (nabla_b, nabla_w)
 
-        
+    def evaluate(self, test_data):
+        """
+        Number of test inputs for which the network produces the correct
+        output.
+        Assume output is the index with the highest activation
+        """
+        test_results = [(np.argmax(self.feedforward(x)), y) for (x, y) in
+                test_data]
+        return sum(int(x == y) for (x, y) in test_results)
 
     def cost_prime(self, pred, true):
         """
@@ -86,6 +94,38 @@ class NN:
         function.
         """
         return (pred - true)
+
+    def SGD(self, training_data, mini_batch_size, epochs, eta):
+        """
+        Trains neural network using stochastic gradient descent by calling
+        update_mini_batch() function.
+        training_data is tuple (input, desired_output),
+        epochs is number of training epochs,
+        eta is learning rate.
+        """
+        n = len(list(training_data))
+        for j in range(epochs):
+            np.random.shuffle(training_data)
+            mini_batches = [training_data[k:k + mini_batch_size] for k in
+                    range(0, n, mini_batch_size)]
+            for mini_batch in mini_batches:
+                self.update_mini_batch(mini_batch, eta)
+
+    def update_mini_batch(self, mini_batch, eta):
+        """
+        Applies gradient descent for a mini_batch.
+        Meant to be called by SGD() function.
+        """
+        nabla_b = [np.zeros(b.shape) for b in self.biases]
+        nabla_w = [np.zeros(w.shape) for w in self.weights]
+        for x, y in mini_batch:
+            delta_nabla_b, delta_nabla_w = self.backprop(x, y)
+            nabla_b = [nb + dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
+            nabla_w = [nw + dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
+        self.weights = [w - (eta / len(mini_batch)) * nw for w, nw in
+                zip(self.weights, nabla_w)]
+        self.biases = [b - (eta / len(mini_batch)) * nb for b, nb in
+                zip(self.biases, nabla_b)]
 
 
 def sigmoid(z):
