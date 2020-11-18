@@ -83,7 +83,7 @@ class NN:
         output.
         Assume output is the index with the highest activation
         """
-        test_results = [(np.argmax(self.feedforward(x)), y) for (x, y) in
+        test_results = [(np.argmax(self.feed_forward(x)), y) for (x, y) in
                 test_data]
         return sum(int(x == y) for (x, y) in test_results)
 
