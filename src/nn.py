@@ -46,12 +46,14 @@ class NN:
         Returns a tuple of gradients of cost function w.r.t each parameter,
         (nabla_b, nabla_w), which are of the same shape as self.biases,
         self.weights.
+        Vectorised so that x and y are matrices with N column vectors for the N
+        samples in the batch.
         Input: x is input to the network, y is correct output.
         """
         # lists to store derivatives of cost function w.r.t each weight and bias
         nabla_b = [np.zeros(b.shape) for b in self.biases]
         nabla_w = [np.zeros(w.shape) for w in self.weights]
-
+        
         # feed forward and store all activations:
         activation = x
         activations = [x] # store the sigmoid(z) variables
@@ -65,14 +67,14 @@ class NN:
         # go backward and store results in nabla_{b,w}
         delta = self.cost_prime(activations[-1], y) * sigmoid_prime(zs[-1])
         # derivative w.r.t last layer params
-        nabla_b[-1] = delta
+        nabla_b[-1] = np.sum(delta, axis=1).reshape((self.layer_sizes[-1],1))
         nabla_w[-1] = np.dot(delta, activations[-2].transpose())
         # loop through the rest of the network
         for l in range(2, self.num_layers):
             z = zs[-l]
             delta = np.dot(self.weights[-l+1].transpose(), delta) *\
             sigmoid_prime(z)
-            nabla_b[-l] = delta
+            nabla_b[-l] = np.sum(delta, axis=1).reshape((self.layer_sizes[-l],1))
             nabla_w[-l] = np.dot(delta, activations[-l-1].transpose())
 
         return (nabla_b, nabla_w)
@@ -115,13 +117,13 @@ class NN:
         """
         Applies gradient descent for a mini_batch.
         Meant to be called by SGD() function.
+        Vectorised, so that it passes the whole batch to backprop at once.
         """
-        nabla_b = [np.zeros(b.shape) for b in self.biases]
-        nabla_w = [np.zeros(w.shape) for w in self.weights]
-        for x, y in mini_batch:
-            delta_nabla_b, delta_nabla_w = self.backprop(x, y)
-            nabla_b = [nb + dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
-            nabla_w = [nw + dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
+        X = np.array([sample[0].reshape(self.layer_sizes[0]) for sample in
+            mini_batch]).transpose()
+        Y = np.array([sample[1].reshape(self.layer_sizes[-1]) for sample in
+            mini_batch]).transpose()
+        nabla_b, nabla_w = self.backprop(X, Y)
         self.weights = [w - (eta / len(mini_batch)) * nw for w, nw in
                 zip(self.weights, nabla_w)]
         self.biases = [b - (eta / len(mini_batch)) * nb for b, nb in
