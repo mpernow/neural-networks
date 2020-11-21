@@ -1,1 +1,3 @@
 numpy==1.19.2
+notebook==6.1.5
+matplotplib==3.3.2
