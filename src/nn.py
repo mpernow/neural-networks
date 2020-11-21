@@ -97,14 +97,18 @@ class NN:
         """
         return (pred - true)
 
-    def SGD(self, training_data, mini_batch_size, epochs, eta):
+    def SGD(self, training_data, mini_batch_size, epochs, eta, test_data=None):
         """
         Trains neural network using stochastic gradient descent by calling
         update_mini_batch() function.
         training_data is tuple (input, desired_output),
         epochs is number of training epochs,
         eta is learning rate.
+        If test_data supplied, will return list of progress.
         """
+        if test_data:
+            progress = []
+            n_test = len(test_data)
         n = len(list(training_data))
         for j in range(epochs):
             np.random.shuffle(training_data)
@@ -112,6 +116,11 @@ class NN:
                     range(0, n, mini_batch_size)]
             for mini_batch in mini_batches:
                 self.update_mini_batch(mini_batch, eta)
+            print('Epoch ', j)
+            if test_data:
+                progress.append(self.evaluate(test_data)/n_test)
+        if test_data:
+            return progress
 
     def update_mini_batch(self, mini_batch, eta):
         """
