@@ -11,6 +11,19 @@ class NN:
     """
     Neural network class definition
     """
+    def __init__(self):
+        """
+        Initialise default cost function and activation
+        """
+        self.cost_func = QuadraticCost
+
+    def set_cost(self, cost_func):
+        """
+        Sets the cost function to something other than default.
+        cost_func should be a class containing 'fn' and 'delta' static methods
+        """
+        self.cost_func = cost_func
+
     def set_layers(self, layers):
         """
         Takes list of integers [a, b, c, ...]
@@ -65,7 +78,7 @@ class NN:
             activations.append(activation)
         
         # go backward and store results in nabla_{b,w}
-        delta = self.cost_prime(activations[-1], y) * sigmoid_prime(zs[-1])
+        delta = self.cost_func.delta(zs[-1], activations[-1], y)
         # derivative w.r.t last layer params
         nabla_b[-1] = np.sum(delta, axis=1).reshape((self.layer_sizes[-1],1))
         nabla_w[-1] = np.dot(delta, activations[-2].transpose())
@@ -88,14 +101,6 @@ class NN:
         test_results = [(np.argmax(self.feed_forward(x)), y) for (x, y) in
                 test_data]
         return sum(int(x == y) for (x, y) in test_results)
-
-    def cost_prime(self, pred, true):
-        """
-        Derivative of cost function
-        Assumes distance squared between predicted and true values as the cost
-        function.
-        """
-        return (pred - true)
 
     def SGD(self, training_data, mini_batch_size, epochs, eta, test_data=None):
         """
@@ -138,6 +143,44 @@ class NN:
         self.biases = [b - (eta / len(mini_batch)) * nb for b, nb in
                 zip(self.biases, nabla_b)]
 
+class QuadraticCost:
+    """
+    Class to contain the cost function and derivative for quadratic cost.
+    """
+    @staticmethod
+    def fn(a, y):
+        """
+        Cost function between output a and desired output y.
+        """
+        return 0.5 * np.linalg.norm(a - y)**2
+
+    @staticmethod
+    def delta(z, a, y):
+        """
+        Error derivative from output layer
+        """
+        return (a - y) * sigmoid_prime(z)
+
+class CrossEntropyCost:
+    """
+    Class to contain the cost function and derivative for cross-entropy.
+    """
+    @staticmethod
+    def fn(a, y):
+        """
+        Cost function between output a and desired output y.
+        Note that since y is either 0 or 1, only one of the terms is active.
+        The np.nan_to_num corrects for the nan that occurs in log(0).
+        """
+        return np.sum(np.nan_to_num(-y * np.log(a) - (1 - y) * np.log(1 - a)))
+
+    @staticmethod
+    def delta(z, a, y):
+        """
+        Error derivative.
+        z is passed only for compatibility with quadratic cost.
+        """
+        return (a - y)
 
 def sigmoid(z):
     """
