@@ -16,6 +16,8 @@ class NN:
         Initialise default cost function and activation
         """
         self.cost_func = QuadraticCost
+        self.activation_func = Sigmoid
+        self.final_activation = Sigmoid
 
     def set_cost(self, cost_func):
         """
@@ -23,6 +25,20 @@ class NN:
         cost_func should be a class containing 'fn' and 'delta' static methods
         """
         self.cost_func = cost_func
+
+    def set_activation(self, act_func):
+        """
+        Sets activation function.
+        Must be a class containing 'fn' and 'deriv' static methods
+        """
+        self.activation_func = act_func
+
+    def set_final_activation(self, final_act_func):
+        """
+        Sets final activation function.
+        Must be a class containing 'fn' and 'deriv' static methods
+        """
+        self.final_activation = final_act_func
 
     def set_layers(self, layers):
         """
@@ -49,8 +65,10 @@ class NN:
         Can also take numpy array of size (n, m) where m is the number of
         data points in a batch.
         """
-        for b, w in zip(self.biases, self.weights):
-            a = sigmoid(np.dot(w, a) + b)
+        for b, w in zip(self.biases[:-1], self.weights[:-1]):
+            a = self.activation_func.fn(np.dot(w, a) + b)
+        a = self.final_activation.fn(np.dot(self.weights[-1], a) +
+                self.biases[-1])
         return a
 
     def backprop(self, x, y):
@@ -71,14 +89,19 @@ class NN:
         activation = x
         activations = [x] # store the sigmoid(z) variables
         zs = [] # store the w.x+b variables
-        for b, w in list(zip(self.biases, self.weights)):
+        for b, w in list(zip(self.biases[:-1], self.weights[:-1])):
             z = np.dot(w, activation) + b
             zs.append(z)
-            activation = sigmoid(z)
+            activation = self.activation_func.fn(z)
             activations.append(activation)
+        z = np.dot(self.weights[-1], activation) + self.biases[-1]
+        zs.append(z)
+        activation = self.final_activation.fn(z)
+        activations.append(activation)
         
         # go backward and store results in nabla_{b,w}
-        delta = self.cost_func.delta(zs[-1], activations[-1], y)
+        delta = self.cost_func.delta(activations[-1], y) *\
+            self.final_activation.deriv(zs[-1])
         # derivative w.r.t last layer params
         nabla_b[-1] = np.sum(delta, axis=1).reshape((self.layer_sizes[-1],1))
         nabla_w[-1] = np.dot(delta, activations[-2].transpose())
@@ -86,7 +109,7 @@ class NN:
         for l in range(2, self.num_layers):
             z = zs[-l]
             delta = np.dot(self.weights[-l+1].transpose(), delta) *\
-            sigmoid_prime(z)
+                self.activation_func.deriv(z)
             nabla_b[-l] = np.sum(delta, axis=1).reshape((self.layer_sizes[-l],1))
             nabla_w[-l] = np.dot(delta, activations[-l-1].transpose())
 
@@ -155,11 +178,11 @@ class QuadraticCost:
         return 0.5 * np.linalg.norm(a - y)**2
 
     @staticmethod
-    def delta(z, a, y):
+    def delta(a, y):
         """
         Error derivative from output layer
         """
-        return (a - y) * sigmoid_prime(z)
+        return (a - y)
 
 class CrossEntropyCost:
     """
@@ -175,21 +198,49 @@ class CrossEntropyCost:
         return np.sum(np.nan_to_num(-y * np.log(a) - (1 - y) * np.log(1 - a)))
 
     @staticmethod
-    def delta(z, a, y):
+    def delta(a, y):
         """
         Error derivative.
-        z is passed only for compatibility with quadratic cost.
         """
-        return (a - y)
+        return (a - y) / (a * (1 - a))
 
-def sigmoid(z):
+class Sigmoid:
     """
-    Sigmoid function of variable z
+    Class to contain the sigmoid activation function and derivative
     """
-    return 1./(1. + np.exp(-z))
+    @staticmethod
+    def fn(z):
+        """
+        Sigmoid function of variable z
+        """
+        return 1./(1. + np.exp(-z))
 
-def sigmoid_prime(z):
+    @staticmethod
+    def deriv(z):
+        """
+        Derivative of sigmoid
+        """
+        return Sigmoid.fn(z) * (1. - Sigmoid.fn(z))
+
+class Softmax:
     """
-    Derivative of sigmoid
+    Class for softmax function and derivative
     """
-    return sigmoid(z) * (1. - sigmoid(z))
+    @staticmethod
+    def fn(z):
+        """
+        Softmax function of the vector z
+        Note: does not work with just the scalar z, due to the normalisation
+        required.
+        """
+        exps = np.exp(z)
+        # Since exps in (10, batchsize) array, need to sum over correct axis
+        return exps / np.sum(exps, axis=0)
+    
+    @staticmethod
+    def deriv(z):
+        """
+        Derivative of softmax
+        """
+        return Softmax.fn(z) - (Softmax.fn(z))**2
+
