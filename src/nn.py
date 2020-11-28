@@ -115,28 +115,51 @@ class NN:
 
         return (nabla_b, nabla_w)
 
-    def evaluate(self, test_data):
+    def evaluate(self, data, convert=False):
         """
         Number of test inputs for which the network produces the correct
         output.
         Assume output is the index with the highest activation
+        The convert flag should be True if it is the training data, due to
+        differences in how the MNIST dataset is implemented.
         """
-        test_results = [(np.argmax(self.feed_forward(x)), y) for (x, y) in
-                test_data]
-        return sum(int(x == y) for (x, y) in test_results)
+        if convert:
+            results = [(np.argmax(self.feed_forward(x)), np.argmax(y)) for (x,
+                y) in data]
+        else:
+            results = [(np.argmax(self.feed_forward(x)), y) for (x, y) in
+                data]
+        return sum(int(x == y) for (x, y) in results)/len(data)
 
-    def SGD(self, training_data, mini_batch_size, epochs, eta, test_data=None):
+    def total_cost(self, data, convert=False):
+        """
+        Total cost of the data.
+        The convert flag should be set to False if it is the training data
+        """
+        cost = 0.0
+        for x, y in data:
+            a = self.feed_forward(x)
+            if convert:
+                y = vectorised(y)
+            cost += self.cost_func.fn(a, y)/len(data)
+        return cost
+
+    def SGD(self, training_data, mini_batch_size, epochs, eta,
+            evaluation_data=None, monitor_eval_cost=False,
+            monitor_eval_accuracy=False, monitor_train_cost=False,
+            monitor_train_accuracy=False):
         """
         Trains neural network using stochastic gradient descent by calling
         update_mini_batch() function.
         training_data is tuple (input, desired_output),
         epochs is number of training epochs,
         eta is learning rate.
-        If test_data supplied, will return list of progress.
+        If evaluation_data is supplied and flags are set to True, will return list of progress.
         """
-        if test_data:
-            progress = []
-            n_test = len(test_data)
+        if evaluation_data:
+            n_eval = len(evaluation_data)
+        eval_cost, eval_accuracy = [], []
+        train_cost, train_accuracy = [], []
         n = len(list(training_data))
         for j in range(epochs):
             np.random.shuffle(training_data)
@@ -145,10 +168,16 @@ class NN:
             for mini_batch in mini_batches:
                 self.update_mini_batch(mini_batch, eta)
             print('Epoch ', j)
-            if test_data:
-                progress.append(self.evaluate(test_data)/n_test)
-        if test_data:
-            return progress
+            if monitor_eval_cost:
+                eval_cost.append(self.total_cost(evaluation_data, convert=True))
+            if monitor_eval_accuracy:
+                eval_accuracy.append(self.evaluate(evaluation_data))
+            if monitor_train_cost:
+                train_cost.append(self.total_cost(training_data))
+            if monitor_train_accuracy:
+                train_accuracy.append(self.evaluate(training_data,
+                    convert=True))
+        return eval_cost, eval_accuracy, train_cost, train_accuracy
 
     def update_mini_batch(self, mini_batch, eta):
         """
@@ -244,3 +273,11 @@ class Softmax:
         """
         return Softmax.fn(z) - (Softmax.fn(z))**2
 
+def vectorised(j):
+    """
+    Returns 10-dim unit vector with j being the one.
+    Used for conversion of data set
+    """
+    e = np.zeros((10, 1))
+    e[j] = 1.0
+    return e
