@@ -131,7 +131,7 @@ class NN:
                 data]
         return sum(int(x == y) for (x, y) in results)/len(data)
 
-    def total_cost(self, data, convert=False):
+    def total_cost(self, data, lmbda, convert=False):
         """
         Total cost of the data.
         The convert flag should be set to False if it is the training data
@@ -142,9 +142,11 @@ class NN:
             if convert:
                 y = vectorised(y)
             cost += self.cost_func.fn(a, y)/len(data)
+        cost += 0.5 * (lmbda/len(data))*sum(np.linalg.norm(w)**2 for w in
+                self.weights)
         return cost
 
-    def SGD(self, training_data, mini_batch_size, epochs, eta,
+    def SGD(self, training_data, mini_batch_size, epochs, eta, lmbda=0.0,
             evaluation_data=None, monitor_eval_cost=False,
             monitor_eval_accuracy=False, monitor_train_cost=False,
             monitor_train_accuracy=False):
@@ -166,20 +168,21 @@ class NN:
             mini_batches = [training_data[k:k + mini_batch_size] for k in
                     range(0, n, mini_batch_size)]
             for mini_batch in mini_batches:
-                self.update_mini_batch(mini_batch, eta)
+                self.update_mini_batch(mini_batch, eta, lmbda,
+                        len(training_data))
             print('Epoch ', j)
             if monitor_eval_cost:
-                eval_cost.append(self.total_cost(evaluation_data, convert=True))
+                eval_cost.append(self.total_cost(evaluation_data, lmbda, convert=True))
             if monitor_eval_accuracy:
                 eval_accuracy.append(self.evaluate(evaluation_data))
             if monitor_train_cost:
-                train_cost.append(self.total_cost(training_data))
+                train_cost.append(self.total_cost(training_data, lmbda))
             if monitor_train_accuracy:
                 train_accuracy.append(self.evaluate(training_data,
                     convert=True))
         return eval_cost, eval_accuracy, train_cost, train_accuracy
 
-    def update_mini_batch(self, mini_batch, eta):
+    def update_mini_batch(self, mini_batch, eta, lmbda, n):
         """
         Applies gradient descent for a mini_batch.
         Meant to be called by SGD() function.
@@ -190,7 +193,7 @@ class NN:
         Y = np.array([sample[1].reshape(self.layer_sizes[-1]) for sample in
             mini_batch]).transpose()
         nabla_b, nabla_w = self.backprop(X, Y)
-        self.weights = [w - (eta / len(mini_batch)) * nw for w, nw in
+        self.weights = [(1 - eta * (lmbda/n)) * w - (eta / len(mini_batch)) * nw for w, nw in
                 zip(self.weights, nabla_w)]
         self.biases = [b - (eta / len(mini_batch)) * nb for b, nb in
                 zip(self.biases, nabla_b)]
