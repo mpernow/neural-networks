@@ -55,6 +55,18 @@ class NN:
         """
         # biases not set for first layer
         self.biases = [np.random.randn(l, 1) for l in self.layer_sizes[1:]]
+        self.weights = [np.random.randn(l2, l1)/np.sqrt(l1) for l1, l2 in
+                zip(self.layer_sizes[:-1], self.layer_sizes[1:])]
+
+    def init_weights_and_biases_large(self):
+        """
+        Initialises the weights and biases of the network
+        using standard normal distribution
+        Note that this often gives very large activations and is not
+        recommended.
+        """
+        # biases not set for first layer
+        self.biases = [np.random.randn(l, 1) for l in self.layer_sizes[1:]]
         self.weights = [np.random.randn(l2, l1) for l1, l2 in
                 zip(self.layer_sizes[:-1], self.layer_sizes[1:])]
 
